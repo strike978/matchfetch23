@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>23andMe Data Viewer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>23andMe Data Viewer</h1>
+
+    <div class="url-config">
+      <h3>URL Configuration</h3>
+      <label for="relativesUrl">Family Relatives URL:</label>
+      <input type="text" id="relativesUrl" placeholder="Enter relatives URL">
+
+      <label for="ancestryUrl">Ancestry Composition URL:</label>
+      <input type="text" id="ancestryUrl" placeholder="Enter ancestry URL">
+    </div>
+
+    <button id="fetchData">Fetch Data</button>
+
+    <div class="section">
+      <h2>Family Relatives</h2>
+      <div id="relativesStatus" class="status">Enter URL and click "Fetch Data"</div>
+      <pre id="relativesData" class="response"></pre>
+    </div>
+
+    <div class="section">
+      <h2>Ancestry Composition</h2>
+      <div id="ancestryStatus" class="status">Enter URL and click "Fetch Data"</div>
+      <pre id="ancestryData" class="response"></pre>
+    </div>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>

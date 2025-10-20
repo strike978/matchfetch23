@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "23andMe Data Viewer",
+  "version": "1.0",
+  "description": "Fetch and display data from 23andMe API endpoints",
+  "permissions": [
+    "cookies",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.23andme.com/*"
+  ],
+  "action": {
+    "default_title": "23andMe Data Viewer"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
