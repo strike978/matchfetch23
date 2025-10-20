@@ -4,9 +4,6 @@ let allRelativesData = [];
 let enrichedMatchesData = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Set default ancestry URL
-  document.getElementById('ancestryUrl').value = 'https://you.23andme.com/p/de4801e7042d7210/profile/f3ba59870a2a7a4a/ancestry_composition/?sort_by=remote&include_ibd_countries=false';
-
   // Enable/disable custom amount input based on radio selection
   document.querySelectorAll('input[name="fetchType"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
@@ -74,18 +71,6 @@ async function fetchRelativesData(profileId) {
   );
 }
 
-document.getElementById('fetchAncestry').addEventListener('click', async () => {
-  const ancestryUrl = document.getElementById('ancestryUrl').value.trim();
-
-  if (ancestryUrl) {
-    await fetchAndDisplay(
-      ancestryUrl,
-      'ancestryStatus',
-      'ancestryData',
-      'Ancestry Composition'
-    );
-  }
-});
 
 async function fetchAndDisplay(url, statusElementId, dataElementId, label) {
   const statusElement = document.getElementById(statusElementId);
@@ -244,12 +229,6 @@ async function extractAncestryData(data, url) {
     return data;
   }
 
-  // Skip if not using latest compute
-  if (matchingTree.using_latest_compute === false) {
-    console.log('Skipping profile - not using latest compute:', targetProfileId);
-    return null;
-  }
-
   // Recursively extract all nodes with totalPercent into hierarchical structure
   function extractNodes(node, allNodes = []) {
     // Skip the root "World" node
@@ -364,6 +343,7 @@ async function extractAncestryData(data, url) {
 
   return {
     profile_id: matchingTree.profile_id,
+    using_latest_compute: matchingTree.using_latest_compute,
     haplogroups: haplogroups,
     regions: regions
   };
@@ -418,10 +398,6 @@ document.getElementById('fetchMatches').addEventListener('click', async () => {
 
   progressElement.textContent = `✓ Completed! Fetched ${enrichedMatchesData.length} matches.`;
   saveButton.disabled = false;
-
-  // Calculate and display statistics
-  const stats = calculateMatchStatistics(enrichedMatchesData);
-  displayMatchStatistics(stats);
 });
 
 // Fetch detailed data for a single match
@@ -483,12 +459,6 @@ async function extractAncestryDataForMatch(data, targetProfileId) {
 
   const matchingTree = data.population_trees.find(tree => tree.profile_id === targetProfileId);
   if (!matchingTree) {
-    return null;
-  }
-
-  // Skip if not using latest compute
-  if (matchingTree.using_latest_compute === false) {
-    console.log('Skipping match - not using latest compute:', targetProfileId);
     return null;
   }
 
@@ -596,6 +566,7 @@ async function extractAncestryDataForMatch(data, targetProfileId) {
   }
 
   return {
+    using_latest_compute: matchingTree.using_latest_compute,
     haplogroups: haplogroups,
     regions: regions
   };
