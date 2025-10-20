@@ -244,17 +244,11 @@ async function extractAncestryData(data, url) {
     return data;
   }
 
-  // Recursively extract all nodes with totalPercent
-  function extractNodes(node, results = {}) {
+  // Recursively extract all nodes with totalPercent into hierarchical structure
+  function extractNodes(node, allNodes = []) {
     // Skip the root "World" node
     if (node.totalPercent && parseFloat(node.totalPercent) > 0 && node.id !== 'root') {
-      const demonym = node.demonym || 'Unknown';
-
-      if (!results[demonym]) {
-        results[demonym] = [];
-      }
-
-      results[demonym].push({
+      allNodes.push({
         id: node.id,
         label: node.label,
         totalPercent: node.totalPercent,
@@ -265,13 +259,51 @@ async function extractAncestryData(data, url) {
 
     // Recursively process children
     if (node.children && Array.isArray(node.children)) {
-      node.children.forEach(child => extractNodes(child, results));
+      node.children.forEach(child => extractNodes(child, allNodes));
     }
 
-    return results;
+    return allNodes;
   }
 
-  const ancestries = extractNodes(matchingTree.population_tree);
+  // Build hierarchical structure
+  function buildHierarchy(nodes) {
+    const nodeMap = {};
+    const result = {};
+
+    // Create a map of all nodes by ID
+    nodes.forEach(node => {
+      nodeMap[node.id] = { ...node, regions: {} };
+    });
+
+    // Build hierarchy
+    nodes.forEach(node => {
+      const hierarchyNode = nodeMap[node.id];
+
+      if (node.parent_id === 'root') {
+        // Top level region
+        result[node.label] = [hierarchyNode];
+      } else if (nodeMap[node.parent_id]) {
+        // Child region - add to parent's regions
+        const parent = nodeMap[node.parent_id];
+        if (!parent.regions[node.label]) {
+          parent.regions[node.label] = [];
+        }
+        parent.regions[node.label].push(hierarchyNode);
+      }
+    });
+
+    // Clean up empty regions objects
+    Object.values(nodeMap).forEach(node => {
+      if (Object.keys(node.regions).length === 0) {
+        delete node.regions;
+      }
+    });
+
+    return result;
+  }
+
+  const allNodes = extractNodes(matchingTree.population_tree);
+  const regions = buildHierarchy(allNodes);
 
   // Fetch haplogroup data
   let haplogroups = null;
@@ -327,7 +359,7 @@ async function extractAncestryData(data, url) {
   return {
     profile_id: matchingTree.profile_id,
     haplogroups: haplogroups,
-    ancestries: ancestries
+    regions: regions
   };
 }
 
@@ -444,14 +476,10 @@ async function extractAncestryDataForMatch(data, targetProfileId) {
     return null;
   }
 
-  // Extract ancestry nodes
-  function extractNodes(node, results = {}) {
+  // Extract ancestry nodes into hierarchical structure
+  function extractNodes(node, allNodes = []) {
     if (node.totalPercent && parseFloat(node.totalPercent) > 0 && node.id !== 'root') {
-      const demonym = node.demonym || 'Unknown';
-      if (!results[demonym]) {
-        results[demonym] = [];
-      }
-      results[demonym].push({
+      allNodes.push({
         id: node.id,
         label: node.label,
         totalPercent: node.totalPercent,
@@ -460,12 +488,50 @@ async function extractAncestryDataForMatch(data, targetProfileId) {
       });
     }
     if (node.children && Array.isArray(node.children)) {
-      node.children.forEach(child => extractNodes(child, results));
+      node.children.forEach(child => extractNodes(child, allNodes));
     }
-    return results;
+    return allNodes;
   }
 
-  const ancestries = extractNodes(matchingTree.population_tree);
+  // Build hierarchical structure
+  function buildHierarchy(nodes) {
+    const nodeMap = {};
+    const result = {};
+
+    // Create a map of all nodes by ID
+    nodes.forEach(node => {
+      nodeMap[node.id] = { ...node, regions: {} };
+    });
+
+    // Build hierarchy
+    nodes.forEach(node => {
+      const hierarchyNode = nodeMap[node.id];
+
+      if (node.parent_id === 'root') {
+        // Top level region
+        result[node.label] = [hierarchyNode];
+      } else if (nodeMap[node.parent_id]) {
+        // Child region - add to parent's regions
+        const parent = nodeMap[node.parent_id];
+        if (!parent.regions[node.label]) {
+          parent.regions[node.label] = [];
+        }
+        parent.regions[node.label].push(hierarchyNode);
+      }
+    });
+
+    // Clean up empty regions objects
+    Object.values(nodeMap).forEach(node => {
+      if (Object.keys(node.regions).length === 0) {
+        delete node.regions;
+      }
+    });
+
+    return result;
+  }
+
+  const allNodes = extractNodes(matchingTree.population_tree);
+  const regions = buildHierarchy(allNodes);
 
   // Fetch haplogroups
   let haplogroups = null;
@@ -515,7 +581,7 @@ async function extractAncestryDataForMatch(data, targetProfileId) {
 
   return {
     haplogroups: haplogroups,
-    ancestries: ancestries
+    regions: regions
   };
 }
 
