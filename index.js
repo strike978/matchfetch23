@@ -1,26 +1,11 @@
-// Load saved URLs on startup
 document.addEventListener('DOMContentLoaded', () => {
-  chrome.storage.local.get(['relativesUrl', 'ancestryUrl'], (result) => {
-    if (result.relativesUrl) {
-      document.getElementById('relativesUrl').value = result.relativesUrl;
-    } else {
-      document.getElementById('relativesUrl').value = 'https://you.23andme.com/p/de4801e7042d7210/family/relatives/ajax/?limit=100';
-    }
-
-    if (result.ancestryUrl) {
-      document.getElementById('ancestryUrl').value = result.ancestryUrl;
-    } else {
-      document.getElementById('ancestryUrl').value = 'https://you.23andme.com/p/de4801e7042d7210/profile/f3ba59870a2a7a4a/ancestry_composition/?sort_by=remote&include_ibd_countries=false';
-    }
-  });
+  document.getElementById('relativesUrl').value = 'https://you.23andme.com/p/de4801e7042d7210/family/relatives/ajax/?limit=100';
+  document.getElementById('ancestryUrl').value = 'https://you.23andme.com/p/de4801e7042d7210/profile/f3ba59870a2a7a4a/ancestry_composition/?sort_by=remote&include_ibd_countries=false';
 });
 
 document.getElementById('fetchData').addEventListener('click', async () => {
   const relativesUrl = document.getElementById('relativesUrl').value.trim();
   const ancestryUrl = document.getElementById('ancestryUrl').value.trim();
-
-  // Save URLs for next time
-  chrome.storage.local.set({ relativesUrl, ancestryUrl });
 
   // Fetch family relatives data
   if (relativesUrl) {
