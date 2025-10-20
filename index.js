@@ -407,6 +407,8 @@ async function fetchMatchDetails(match) {
 
   // Fetch ancestry composition
   try {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     const ancestryUrl = `https://you.23andme.com/p/${currentProfileId}/profile/${relativeProfileId}/ancestry_composition/?sort_by=remote&include_ibd_countries=false`;
 
     const response = await fetch(ancestryUrl, {
@@ -468,6 +470,8 @@ async function extractAncestryDataForMatch(data, targetProfileId) {
   // Fetch haplogroups
   let haplogroups = null;
   try {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     const haplogroupUrl = `https://you.23andme.com/p/${currentProfileId}/ancestry/compute-result/?profile_id=${targetProfileId}%2C${currentProfileId}&name=mthaplo_build_7%3Ahaplogroup%2Cyhaplo_2023%3Ahaplogroup`;
 
     const cookies = await chrome.cookies.getAll({ domain: '.23andme.com' });
