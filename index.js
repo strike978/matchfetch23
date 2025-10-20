@@ -244,6 +244,12 @@ async function extractAncestryData(data, url) {
     return data;
   }
 
+  // Skip if not using latest compute
+  if (matchingTree.using_latest_compute === false) {
+    console.log('Skipping profile - not using latest compute:', targetProfileId);
+    return null;
+  }
+
   // Recursively extract all nodes with totalPercent into hierarchical structure
   function extractNodes(node, allNodes = []) {
     // Skip the root "World" node
@@ -412,6 +418,10 @@ document.getElementById('fetchMatches').addEventListener('click', async () => {
 
   progressElement.textContent = `✓ Completed! Fetched ${enrichedMatchesData.length} matches.`;
   saveButton.disabled = false;
+
+  // Calculate and display statistics
+  const stats = calculateMatchStatistics(enrichedMatchesData);
+  displayMatchStatistics(stats);
 });
 
 // Fetch detailed data for a single match
@@ -473,6 +483,12 @@ async function extractAncestryDataForMatch(data, targetProfileId) {
 
   const matchingTree = data.population_trees.find(tree => tree.profile_id === targetProfileId);
   if (!matchingTree) {
+    return null;
+  }
+
+  // Skip if not using latest compute
+  if (matchingTree.using_latest_compute === false) {
+    console.log('Skipping match - not using latest compute:', targetProfileId);
     return null;
   }
 
@@ -583,6 +599,216 @@ async function extractAncestryDataForMatch(data, targetProfileId) {
     haplogroups: haplogroups,
     regions: regions
   };
+}
+
+// Calculate statistics from enriched matches data
+function calculateMatchStatistics(matches) {
+  const stats = {
+    totalMatches: matches.length,
+    averageRegions: {},
+    haplogroups: {
+      ydna: {},
+      mtdna: {}
+    }
+  };
+
+  // Collect all region data and haplogroup data
+  const regionData = {};
+  let matchesWithYDNA = 0;
+
+  matches.forEach(match => {
+    // Process haplogroups - ignore empty Y-DNA (females)
+    if (match.ancestry && match.ancestry.haplogroups) {
+      const { ydna, mtdna } = match.ancestry.haplogroups;
+
+      // Only count Y-DNA if it exists and is not empty
+      if (ydna && ydna.trim() !== '') {
+        stats.haplogroups.ydna[ydna] = (stats.haplogroups.ydna[ydna] || 0) + 1;
+        matchesWithYDNA++;
+      }
+
+      if (mtdna && mtdna.trim() !== '') {
+        stats.haplogroups.mtdna[mtdna] = (stats.haplogroups.mtdna[mtdna] || 0) + 1;
+      }
+    }
+
+    // Process regions - collect hierarchical data
+    if (match.ancestry && match.ancestry.regions) {
+      collectRegionData(match.ancestry.regions, regionData);
+    }
+  });
+
+  // Build hierarchical average regions
+  stats.averageRegions = buildAverageRegionHierarchy(regionData, matches.length);
+
+  // Find most common haplogroups
+  // For Y-DNA, calculate percentage based on matches that have Y-DNA
+  stats.mostCommonYDNA = Object.entries(stats.haplogroups.ydna)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10)
+    .map(([haplogroup, count]) => ({
+      haplogroup,
+      count,
+      percentage: matchesWithYDNA > 0 ? ((count / matchesWithYDNA) * 100).toFixed(1) : '0.0'
+    }));
+
+  stats.mostCommonMtDNA = Object.entries(stats.haplogroups.mtdna)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10)
+    .map(([haplogroup, count]) => ({ haplogroup, count, percentage: ((count / matches.length) * 100).toFixed(1) }));
+
+  return stats;
+}
+
+// Collect region data while preserving hierarchy
+function collectRegionData(regions, regionData) {
+  Object.keys(regions).forEach(regionLabel => {
+    const regionArray = regions[regionLabel];
+
+    regionArray.forEach(region => {
+      if (region.totalPercent) {
+        const percent = parseFloat(region.totalPercent);
+        const key = `${region.id}:${region.label}:${region.parent_id}`;
+
+        if (!regionData[key]) {
+          regionData[key] = {
+            id: region.id,
+            label: region.label,
+            parent_id: region.parent_id,
+            values: [],
+            children: {}
+          };
+        }
+        regionData[key].values.push(percent);
+      }
+
+      // Process nested regions
+      if (region.regions) {
+        collectRegionData(region.regions, regionData);
+      }
+    });
+  });
+}
+
+// Build hierarchical average region structure
+function buildAverageRegionHierarchy(regionData, totalMatches) {
+  const result = {};
+
+  // Convert regionData to array and calculate averages
+  const regionsArray = Object.values(regionData).map(region => ({
+    id: region.id,
+    label: region.label,
+    parent_id: region.parent_id,
+    average: (region.values.reduce((a, b) => a + b, 0) / totalMatches).toFixed(2)
+  }));
+
+  // Build hierarchy
+  const nodeMap = {};
+  regionsArray.forEach(region => {
+    nodeMap[region.id] = { ...region, children: {} };
+  });
+
+  // Organize into hierarchy
+  regionsArray.forEach(region => {
+    const node = nodeMap[region.id];
+
+    if (region.parent_id === 'root') {
+      // Top-level region
+      if (!result[region.label]) {
+        result[region.label] = [];
+      }
+      result[region.label].push(node);
+    } else if (nodeMap[region.parent_id]) {
+      // Child region
+      const parent = nodeMap[region.parent_id];
+      if (!parent.children[region.label]) {
+        parent.children[region.label] = [];
+      }
+      parent.children[region.label].push(node);
+    }
+  });
+
+  return result;
+}
+
+// Display match statistics
+function displayMatchStatistics(stats) {
+  const statsContainer = document.getElementById('matchStats');
+  if (!statsContainer) return;
+
+  let html = '<div style="background: #2a2a2a; padding: 20px; border-radius: 8px; margin: 20px 0;">';
+
+  // Header
+  html += '<h3 style="margin-top: 0; color: #fff;">Match Statistics</h3>';
+  html += `<p style="color: #aaa;">Based on ${stats.totalMatches} processed matches</p>`;
+
+  // Average Regions - Hierarchical Display
+  html += '<div style="margin: 20px 0;"><h4 style="color: #fff;">Average Region Percentages</h4>';
+  html += '<div style="background: #1a1a1a; padding: 15px; border-radius: 4px;">';
+  html += renderRegionHierarchy(stats.averageRegions, 0);
+  html += '</div></div>';
+
+  // Most Common Y-DNA
+  if (stats.mostCommonYDNA.length > 0) {
+    html += '<div style="margin: 20px 0;"><h4 style="color: #fff;">Most Common Y-DNA Haplogroups</h4>';
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">';
+
+    stats.mostCommonYDNA.forEach(({ haplogroup, count, percentage }) => {
+      html += `
+        <div style="background: #1a1a1a; padding: 10px; border-radius: 4px; border-left: 4px solid #2196F3;">
+          <div style="font-weight: bold; color: #64B5F6;">${haplogroup}</div>
+          <div style="font-size: 14px; color: #aaa;">${count} matches (${percentage}%)</div>
+        </div>
+      `;
+    });
+    html += '</div></div>';
+  }
+
+  // Most Common mtDNA
+  if (stats.mostCommonMtDNA.length > 0) {
+    html += '<div style="margin: 20px 0;"><h4 style="color: #fff;">Most Common mtDNA Haplogroups</h4>';
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">';
+
+    stats.mostCommonMtDNA.forEach(({ haplogroup, count, percentage }) => {
+      html += `
+        <div style="background: #1a1a1a; padding: 10px; border-radius: 4px; border-left: 4px solid #FF9800;">
+          <div style="font-weight: bold; color: #FFB74D;">${haplogroup}</div>
+          <div style="font-size: 14px; color: #aaa;">${count} matches (${percentage}%)</div>
+        </div>
+      `;
+    });
+    html += '</div></div>';
+  }
+
+  html += '</div>';
+  statsContainer.innerHTML = html;
+}
+
+// Render hierarchical region structure
+function renderRegionHierarchy(regions, depth) {
+  let html = '';
+  const indent = depth * 20;
+
+  Object.entries(regions).forEach(([regionLabel, regionArray]) => {
+    regionArray.forEach(region => {
+      html += `
+        <div style="margin-left: ${indent}px; margin-bottom: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: ${depth === 0 ? '#2a2a2a' : '#1e1e1e'}; border-radius: 4px; border-left: 3px solid #4CAF50;">
+            <span style="color: #fff; font-weight: ${depth === 0 ? 'bold' : 'normal'};">${region.label}</span>
+            <span style="color: #4CAF50; font-weight: bold; margin-left: 15px;">${region.average}%</span>
+          </div>
+      `;
+
+      // Render children if they exist
+      if (region.children && Object.keys(region.children).length > 0) {
+        html += renderRegionHierarchy(region.children, depth + 1);
+      }
+
+      html += '</div>';
+    });
+  });
+
+  return html;
 }
 
 // Save as JSON button handler
