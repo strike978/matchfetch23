@@ -2,6 +2,9 @@
 let currentProfileId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Set default ancestry URL
+  document.getElementById('ancestryUrl').value = 'https://you.23andme.com/p/de4801e7042d7210/profile/f3ba59870a2a7a4a/ancestry_composition/?sort_by=remote&include_ibd_countries=false';
+
   // Automatically fetch profile ID and relatives data on load
   await autoFetchProfileAndRelatives();
 });
@@ -57,7 +60,7 @@ async function fetchRelativesData(profileId) {
   await fetchAndDisplay(
     relativesUrl,
     'relativesStatus',
-    'relativesData',
+    null,
     'Family Relatives'
   );
 }
@@ -77,11 +80,13 @@ document.getElementById('fetchAncestry').addEventListener('click', async () => {
 
 async function fetchAndDisplay(url, statusElementId, dataElementId, label) {
   const statusElement = document.getElementById(statusElementId);
-  const dataElement = document.getElementById(dataElementId);
+  const dataElement = dataElementId ? document.getElementById(dataElementId) : null;
 
   statusElement.textContent = 'Loading...';
   statusElement.className = 'status loading';
-  dataElement.textContent = '';
+  if (dataElement) {
+    dataElement.textContent = '';
+  }
 
   try {
     console.log(`Fetching ${label} from:`, url);
@@ -141,7 +146,24 @@ async function fetchAndDisplay(url, statusElementId, dataElementId, label) {
 
       const sharingStatsElement = document.getElementById('sharingStats');
       if (sharingStatsElement) {
-        sharingStatsElement.textContent = `Matches Sharing Data (${sharingMatches}) | Total Matches: ${totalMatches} | Not Sharing: ${notSharingMatches}`;
+        sharingStatsElement.innerHTML = `
+          <div style="display: flex; gap: 20px; justify-content: center; padding: 15px; background: #f5f5f5; border-radius: 8px; margin: 10px 0;">
+            <div style="text-align: center;">
+              <div style="font-size: 24px; font-weight: bold; color: #333;">${totalMatches}</div>
+              <div style="font-size: 12px; color: #666;">Total Matches</div>
+            </div>
+            <div style="border-left: 2px solid #ddd;"></div>
+            <div style="text-align: center;">
+              <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">${sharingMatches}</div>
+              <div style="font-size: 12px; color: #666;">Matches Sharing Data</div>
+            </div>
+            <div style="border-left: 2px solid #ddd;"></div>
+            <div style="text-align: center;">
+              <div style="font-size: 24px; font-weight: bold; color: #f44336;">${notSharingMatches}</div>
+              <div style="font-size: 12px; color: #666;">Not Sharing</div>
+            </div>
+          </div>
+        `;
       }
     } else if (label === 'Ancestry Composition' && data && data.population_trees) {
       processedData = await extractAncestryData(data, url);
@@ -150,17 +172,22 @@ async function fetchAndDisplay(url, statusElementId, dataElementId, label) {
     statusElement.textContent = `Success (${response.status})`;
     statusElement.className = 'status success';
 
-    if (typeof processedData === 'string') {
-      dataElement.textContent = processedData;
-    } else {
-      dataElement.textContent = JSON.stringify(processedData, null, 2);
+    // Only display JSON data for non-relatives data
+    if (label !== 'Family Relatives' && dataElement) {
+      if (typeof processedData === 'string') {
+        dataElement.textContent = processedData;
+      } else {
+        dataElement.textContent = JSON.stringify(processedData, null, 2);
+      }
     }
 
   } catch (error) {
     console.error(`${label} error:`, error);
     statusElement.textContent = `Error: ${error.message}`;
     statusElement.className = 'status error';
-    dataElement.textContent = error.message;
+    if (dataElement) {
+      dataElement.textContent = error.message;
+    }
   }
 }
 
