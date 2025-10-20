@@ -1,16 +1,12 @@
+// Store profile ID in memory
+let currentProfileId = null;
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Automatically fetch profile ID and relatives data on load
   await autoFetchProfileAndRelatives();
 });
 
 async function autoFetchProfileAndRelatives() {
-  const statusElement = document.getElementById('profileIdStatus');
-  const dataElement = document.getElementById('profileIdData');
-
-  statusElement.textContent = 'Loading profile ID...';
-  statusElement.className = 'status loading';
-  dataElement.textContent = '';
-
   try {
     console.log('Auto-fetching profile ID from https://you.23andme.com/');
 
@@ -36,28 +32,22 @@ async function autoFetchProfileAndRelatives() {
     const match = html.match(/window\.TTAM\.currentProfileId\s*=\s*["']([a-f0-9]+)["']/);
 
     if (match && match[1]) {
-      const profileId = match[1];
-      console.log('Found profile ID:', profileId);
-
-      statusElement.textContent = 'Success';
-      statusElement.className = 'status success';
-      dataElement.textContent = JSON.stringify({ profileId: profileId }, null, 2);
-
-      // Update URL fields with the profile ID
-      document.getElementById('relativesUrl').value = `https://you.23andme.com/p/${profileId}/family/relatives/ajax/?limit=100`;
-      document.getElementById('ancestryUrl').value = `https://you.23andme.com/p/${profileId}/profile/${profileId}/ancestry_composition/?sort_by=remote&include_ibd_countries=false`;
+      currentProfileId = match[1];
+      console.log('Found profile ID:', currentProfileId);
 
       // Automatically fetch relatives data
-      await fetchRelativesData(profileId);
+      await fetchRelativesData(currentProfileId);
     } else {
       throw new Error('Could not find window.TTAM.currentProfileId in the page. Check console for HTML content.');
     }
 
   } catch (error) {
     console.error('Profile ID fetch error:', error);
-    statusElement.textContent = `Error: ${error.message}`;
-    statusElement.className = 'status error';
-    dataElement.textContent = error.message;
+    const relativesStatusElement = document.getElementById('relativesStatus');
+    if (relativesStatusElement) {
+      relativesStatusElement.textContent = `Error fetching profile: ${error.message}`;
+      relativesStatusElement.className = 'status error';
+    }
   }
 }
 
@@ -72,75 +62,11 @@ async function fetchRelativesData(profileId) {
   );
 }
 
-document.getElementById('getProfileId').addEventListener('click', async () => {
-  const statusElement = document.getElementById('profileIdStatus');
-  const dataElement = document.getElementById('profileIdData');
-
-  statusElement.textContent = 'Loading...';
-  statusElement.className = 'status loading';
-  dataElement.textContent = '';
-
-  try {
-    console.log('Fetching profile ID from https://you.23andme.com/');
-
-    // Don't include X-Requested-With header to avoid the ajax check
-    const response = await fetch('https://you.23andme.com/', {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'text/html'
-      }
-    });
-
-    console.log('Profile ID response status:', response.status);
-
-    if (!response.ok) {
-      const responseText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${response.statusText}\nResponse: ${responseText.substring(0, 200)}`);
-    }
-
-    const html = await response.text();
-    console.log('HTML length:', html.length);
-
-    // Look for window.TTAM.currentProfileId in the HTML
-    const match = html.match(/window\.TTAM\.currentProfileId\s*=\s*["']([a-f0-9]+)["']/);
-
-    if (match && match[1]) {
-      const profileId = match[1];
-      console.log('Found profile ID:', profileId);
-
-      statusElement.textContent = 'Success';
-      statusElement.className = 'status success';
-      dataElement.textContent = JSON.stringify({ profileId: profileId }, null, 2);
-    } else {
-      throw new Error('Could not find window.TTAM.currentProfileId in the page. Check console for HTML content.');
-    }
-
-  } catch (error) {
-    console.error('Profile ID fetch error:', error);
-    statusElement.textContent = `Error: ${error.message}`;
-    statusElement.className = 'status error';
-    dataElement.textContent = error.message;
-  }
-});
-
-document.getElementById('fetchData').addEventListener('click', async () => {
-  const relativesUrl = document.getElementById('relativesUrl').value.trim();
+document.getElementById('fetchAncestry').addEventListener('click', async () => {
   const ancestryUrl = document.getElementById('ancestryUrl').value.trim();
 
-  // Fetch family relatives data
-  if (relativesUrl) {
-    fetchAndDisplay(
-      relativesUrl,
-      'relativesStatus',
-      'relativesData',
-      'Family Relatives'
-    );
-  }
-
-  // Fetch ancestry composition data
   if (ancestryUrl) {
-    fetchAndDisplay(
+    await fetchAndDisplay(
       ancestryUrl,
       'ancestryStatus',
       'ancestryData',
@@ -207,6 +133,16 @@ async function fetchAndDisplay(url, statusElementId, dataElementId, label) {
     let processedData = data;
     if (label === 'Family Relatives' && Array.isArray(data)) {
       processedData = extractRelativesData(data);
+
+      // Calculate and display sharing statistics
+      const totalMatches = data.length;
+      const sharingMatches = data.filter(r => r.is_open_sharing === true).length;
+      const notSharingMatches = data.filter(r => r.is_open_sharing === false).length;
+
+      const sharingStatsElement = document.getElementById('sharingStats');
+      if (sharingStatsElement) {
+        sharingStatsElement.textContent = `Matches Sharing Data (${sharingMatches}) | Total Matches: ${totalMatches} | Not Sharing: ${notSharingMatches}`;
+      }
     } else if (label === 'Ancestry Composition' && data && data.population_trees) {
       processedData = await extractAncestryData(data, url);
     }
@@ -230,10 +166,11 @@ async function fetchAndDisplay(url, statusElementId, dataElementId, label) {
 
 function extractRelativesData(relatives) {
   return relatives.map(relative => ({
-    profile_id: relative.profile_id,
     relative_profile_id: relative.relative_profile_id,
+    initials: relative.initials,
     first_name: relative.first_name,
     last_name: relative.last_name,
+    surnames: relative.surnames,
     is_open_sharing: relative.is_open_sharing,
     sex: relative.sex,
     predicted_relationship_id: relative.predicted_relationship_id,

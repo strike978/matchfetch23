@@ -9,33 +9,21 @@
   <div class="container">
     <h1>23andMe Data Viewer</h1>
 
-    <div class="url-config">
-      <h3>URL Configuration</h3>
-      <label for="relativesUrl">Family Relatives URL:</label>
-      <input type="text" id="relativesUrl" placeholder="Enter relatives URL">
-
-      <label for="ancestryUrl">Ancestry Composition URL:</label>
-      <input type="text" id="ancestryUrl" placeholder="Enter ancestry URL">
-    </div>
-
-    <button id="getProfileId">Get Profile ID</button>
-    <button id="fetchData">Fetch Data</button>
-
-    <div class="section">
-      <h2>Profile ID</h2>
-      <div id="profileIdStatus" class="status">Click "Get Profile ID" to fetch</div>
-      <pre id="profileIdData" class="response"></pre>
-    </div>
-
     <div class="section">
       <h2>Family Relatives</h2>
-      <div id="relativesStatus" class="status">Enter URL and click "Fetch Data"</div>
+      <div id="relativesStatus" class="status">Loading...</div>
+      <div id="sharingStats" class="sharing-stats"></div>
       <pre id="relativesData" class="response"></pre>
     </div>
 
     <div class="section">
       <h2>Ancestry Composition</h2>
-      <div id="ancestryStatus" class="status">Enter URL and click "Fetch Data"</div>
+      <div class="url-config">
+        <label for="ancestryUrl">Ancestry Composition URL:</label>
+        <input type="text" id="ancestryUrl" placeholder="Enter ancestry URL">
+        <button id="fetchAncestry">Fetch Ancestry Data</button>
+      </div>
+      <div id="ancestryStatus" class="status">Enter URL and click "Fetch Ancestry Data"</div>
       <pre id="ancestryData" class="response"></pre>
     </div>
   </div>
