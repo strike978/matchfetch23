@@ -102,7 +102,7 @@ async function fetchAndDisplay(url, statusElementId, dataElementId, label) {
     if (label === 'Family Relatives' && Array.isArray(data)) {
       processedData = extractRelativesData(data);
     } else if (label === 'Ancestry Composition' && data && data.population_trees) {
-      processedData = extractAncestryData(data, url);
+      processedData = await extractAncestryData(data, url);
     }
 
     statusElement.textContent = `Success (${response.status})`;
@@ -146,10 +146,14 @@ function extractRelativesData(relatives) {
   }));
 }
 
-function extractAncestryData(data, url) {
+async function extractAncestryData(data, url) {
   // Extract profile_id from the URL
   const urlMatch = url.match(/\/profile\/([a-f0-9]+)\//);
   const targetProfileId = urlMatch ? urlMatch[1] : null;
+
+  // Extract base profile_id from URL (the one before /profile/)
+  const baseProfileMatch = url.match(/\/p\/([a-f0-9]+)\//);
+  const baseProfileId = baseProfileMatch ? baseProfileMatch[1] : null;
 
   // Find the matching population tree
   const matchingTree = data.population_trees.find(tree => tree.profile_id === targetProfileId);
@@ -170,6 +174,7 @@ function extractAncestryData(data, url) {
       }
 
       results[demonym].push({
+        id: node.id,
         label: node.label,
         totalPercent: node.totalPercent,
         color: node.color,
@@ -185,10 +190,62 @@ function extractAncestryData(data, url) {
     return results;
   }
 
-  const ancestryByDemonym = extractNodes(matchingTree.population_tree);
+  const ancestries = extractNodes(matchingTree.population_tree);
+
+  // Fetch haplogroup data
+  let haplogroups = null;
+  if (baseProfileId && targetProfileId) {
+    try {
+      const haplogroupUrl = `https://you.23andme.com/p/${baseProfileId}/ancestry/compute-result/?profile_id=${targetProfileId}%2C${baseProfileId}&name=mthaplo_build_7%3Ahaplogroup%2Cyhaplo_2023%3Ahaplogroup`;
+
+      const cookies = await chrome.cookies.getAll({ domain: '.23andme.com' });
+      const csrfCookie = cookies.find(c => c.name === 'csrftoken');
+      const csrfToken = csrfCookie ? csrfCookie.value : '';
+
+      const response = await fetch(haplogroupUrl, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken
+        }
+      });
+
+      if (response.ok) {
+        const haplogroupData = await response.json();
+
+        // Filter for the target profile
+        const profileHaplogroups = haplogroupData.filter(h => h.profile_id === targetProfileId);
+
+        haplogroups = {};
+        profileHaplogroups.forEach(h => {
+          if (h.name === 'yhaplo_2023:haplogroup') {
+            const ydnaValue = h.result.haplogroup_id;
+            // If it contains FEMALE, leave it empty
+            if (ydnaValue && ydnaValue.includes('FEMALE')) {
+              haplogroups.ydna = '';
+            } else {
+              // Extract after the colon
+              const colonIndex = ydnaValue.indexOf(':');
+              haplogroups.ydna = colonIndex !== -1 ? ydnaValue.substring(colonIndex + 1) : ydnaValue;
+            }
+          } else if (h.name === 'mthaplo_build_7:haplogroup') {
+            const mtdnaValue = h.result.haplogroup_id;
+            // Extract after the colon
+            const colonIndex = mtdnaValue.indexOf(':');
+            haplogroups.mtdna = colonIndex !== -1 ? mtdnaValue.substring(colonIndex + 1) : mtdnaValue;
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching haplogroups:', error);
+    }
+  }
 
   return {
     profile_id: matchingTree.profile_id,
-    ancestry_by_demonym: ancestryByDemonym
+    haplogroups: haplogroups,
+    ancestries: ancestries
   };
 }
