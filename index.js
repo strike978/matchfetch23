@@ -3,6 +3,58 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('ancestryUrl').value = 'https://you.23andme.com/p/de4801e7042d7210/profile/f3ba59870a2a7a4a/ancestry_composition/?sort_by=remote&include_ibd_countries=false';
 });
 
+document.getElementById('getProfileId').addEventListener('click', async () => {
+  const statusElement = document.getElementById('profileIdStatus');
+  const dataElement = document.getElementById('profileIdData');
+
+  statusElement.textContent = 'Loading...';
+  statusElement.className = 'status loading';
+  dataElement.textContent = '';
+
+  try {
+    console.log('Fetching profile ID from https://you.23andme.com/');
+
+    // Don't include X-Requested-With header to avoid the ajax check
+    const response = await fetch('https://you.23andme.com/', {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Accept': 'text/html'
+      }
+    });
+
+    console.log('Profile ID response status:', response.status);
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${response.statusText}\nResponse: ${responseText.substring(0, 200)}`);
+    }
+
+    const html = await response.text();
+    console.log('HTML length:', html.length);
+
+    // Look for window.TTAM.currentProfileId in the HTML
+    const match = html.match(/window\.TTAM\.currentProfileId\s*=\s*["']([a-f0-9]+)["']/);
+
+    if (match && match[1]) {
+      const profileId = match[1];
+      console.log('Found profile ID:', profileId);
+
+      statusElement.textContent = 'Success';
+      statusElement.className = 'status success';
+      dataElement.textContent = JSON.stringify({ profileId: profileId }, null, 2);
+    } else {
+      throw new Error('Could not find window.TTAM.currentProfileId in the page. Check console for HTML content.');
+    }
+
+  } catch (error) {
+    console.error('Profile ID fetch error:', error);
+    statusElement.textContent = `Error: ${error.message}`;
+    statusElement.className = 'status error';
+    dataElement.textContent = error.message;
+  }
+});
+
 document.getElementById('fetchData').addEventListener('click', async () => {
   const relativesUrl = document.getElementById('relativesUrl').value.trim();
   const ancestryUrl = document.getElementById('ancestryUrl').value.trim();
