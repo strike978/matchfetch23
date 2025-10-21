@@ -357,19 +357,19 @@ function generateMatchesHTML(matches) {
         <span class="summary-value" id="totalMatches">${matches.length}</span>
       </div>
       <div class="summary-item">
-        <span class="summary-label">Latest Compute</span>
+        <span class="summary-label">Latest Version</span>
         <span class="summary-value" id="latestCompute">${matches.filter(m => m.ancestry?.using_latest_compute === true).length}</span>
       </div>
       <div class="summary-item">
-        <span class="summary-label">Old Compute</span>
+        <span class="summary-label">Old Version</span>
         <span class="summary-value" id="oldCompute">${matches.filter(m => m.ancestry?.using_latest_compute === false).length}</span>
       </div>
     </div>
 
     <div class="filters">
       <div class="filter-group">
-        <label>Search:</label>
-        <input type="text" id="searchInput" placeholder="Search by name or relationship...">
+        <label>Search Name:</label>
+        <input type="text" id="searchInput" placeholder="Search by name...">
 
         <label>Version:</label>
         <select id="computeFilter">
@@ -377,6 +377,30 @@ function generateMatchesHTML(matches) {
           <option value="latest">Latest Only</option>
           <option value="old">Old Only</option>
         </select>
+
+        <label>Gender:</label>
+        <select id="genderFilter">
+          <option value="all">All</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+
+        <label>Side:</label>
+        <select id="sideFilter">
+          <option value="all">All</option>
+          <option value="maternal">Maternal</option>
+          <option value="paternal">Paternal</option>
+        </select>
+      </div>
+      <div class="filter-group" style="margin-top: 15px;">
+        <label>Ancestry Region:</label>
+        <select id="regionFilter" style="min-width: 200px;">
+          <option value="all">All Regions</option>
+        </select>
+
+        <label>Min Region %:</label>
+        <input type="range" id="regionSlider" min="0" max="100" value="0" step="1" style="width: 150px;">
+        <span id="regionSliderValue" style="color: #fff; margin-left: 5px;">0%</span>
       </div>
     </div>
 
@@ -395,6 +419,12 @@ function generateMatchesHTML(matches) {
         <tbody id="matchesBody">
         </tbody>
       </table>
+    </div>
+
+    <div class="pagination" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px;">
+      <button id="prevPage" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Previous</button>
+      <span id="pageInfo" style="color: #fff; font-size: 14px;">Page 1</span>
+      <button id="nextPage" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Next</button>
     </div>
   </div>
 
@@ -508,7 +538,12 @@ function generateMatchesHTML(matches) {
         '</div></div><div class="ancestry-content"><h3>Ancestry Composition</h3>' + ancestryHtml + '</div></div>';
     }
 
-    // Render all matches initially
+    // Pagination state
+    let currentPage = 1;
+    const matchesPerPage = 50;
+    let filteredMatches = [];
+
+    // Render matches with pagination
     function renderMatches() {
       console.log('renderMatches called');
       const tbody = document.getElementById('matchesBody');
@@ -518,13 +553,18 @@ function generateMatchesHTML(matches) {
       }
       tbody.innerHTML = '';
 
-      console.log('Rendering', matchesData.length, 'matches');
-      matchesData.forEach((match, index) => {
-        const rowData = generateMatchRowClient(match, index);
+      // Calculate pagination
+      const startIndex = (currentPage - 1) * matchesPerPage;
+      const endIndex = Math.min(startIndex + matchesPerPage, filteredMatches.length);
+      const matchesToShow = filteredMatches.slice(startIndex, endIndex);
+
+      console.log('Rendering', matchesToShow.length, 'matches on page', currentPage);
+      matchesToShow.forEach((match) => {
+        const rowData = generateMatchRowClient(match, match.originalIndex);
 
         const tr = document.createElement('tr');
         tr.className = 'match-row';
-        tr.dataset.index = index;
+        tr.dataset.index = match.originalIndex;
         tr.innerHTML = '<td class="name-cell">' + rowData.name + '</td>' +
           '<td class="dna-cell">' + rowData.dnaPercent + '%</td>' +
           '<td>' + rowData.segments + '</td>' +
@@ -541,6 +581,9 @@ function generateMatchesHTML(matches) {
       });
 
       console.log('Finished rendering. Total rows:', tbody.children.length);
+
+      // Update pagination UI
+      updatePaginationUI();
 
       // Add click handlers
       document.querySelectorAll('.match-row').forEach(row => {
@@ -565,32 +608,117 @@ function generateMatchesHTML(matches) {
       });
     }
 
+    function updatePaginationUI() {
+      const totalPages = Math.ceil(filteredMatches.length / matchesPerPage);
+      document.getElementById('pageInfo').textContent = 'Page ' + currentPage + ' of ' + totalPages + ' (' + filteredMatches.length + ' matches)';
+      document.getElementById('prevPage').disabled = currentPage === 1;
+      document.getElementById('nextPage').disabled = currentPage >= totalPages;
+    }
+
+    // Pagination controls
+    document.getElementById('prevPage').addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderMatches();
+      }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+      const totalPages = Math.ceil(filteredMatches.length / matchesPerPage);
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderMatches();
+      }
+    });
+
+    // Initial setup - add original index to each match
+    matchesData.forEach((match, index) => {
+      match.originalIndex = index;
+    });
+    filteredMatches = matchesData.slice();
+
     // Initial render
     renderMatches();
 
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      const searchTerm = e.target.value.toLowerCase();
+    // Build region filter dropdown
+    function buildRegionDropdown() {
+      const regionSet = new Set();
+      matchesData.forEach(match => {
+        if (match.ancestry && match.ancestry.regions) {
+          for (const [regionName, regionArray] of Object.entries(match.ancestry.regions)) {
+            regionArray.forEach(region => {
+              regionSet.add(region.label);
+              if (region.regions) {
+                for (const [subRegionName, subRegionArray] of Object.entries(region.regions)) {
+                  subRegionArray.forEach(subRegion => {
+                    regionSet.add(region.label + ' > ' + subRegion.label);
+                    if (subRegion.regions) {
+                      for (const [subSubRegionName, subSubRegionArray] of Object.entries(subRegion.regions)) {
+                        subSubRegionArray.forEach(subSubRegion => {
+                          regionSet.add(region.label + ' > ' + subRegion.label + ' > ' + subSubRegion.label);
+                        });
+                      }
+                    }
+                  });
+                }
+              }
+            });
+          }
+        }
+      });
+
+      const regionFilter = document.getElementById('regionFilter');
+      const sortedRegions = Array.from(regionSet).sort();
+      sortedRegions.forEach(region => {
+        const option = document.createElement('option');
+        option.value = region;
+        option.textContent = region;
+        regionFilter.appendChild(option);
+      });
+    }
+    buildRegionDropdown();
+
+    // Region slider update
+    document.getElementById('regionSlider').addEventListener('input', (e) => {
+      document.getElementById('regionSliderValue').textContent = e.target.value + '%';
       filterMatches();
     });
 
-    // Compute filter
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', () => {
+      filterMatches();
+    });
+
+    // All filter change listeners
     document.getElementById('computeFilter').addEventListener('change', () => {
+      filterMatches();
+    });
+    document.getElementById('genderFilter').addEventListener('change', () => {
+      filterMatches();
+    });
+    document.getElementById('sideFilter').addEventListener('change', () => {
+      filterMatches();
+    });
+    document.getElementById('regionFilter').addEventListener('change', () => {
       filterMatches();
     });
 
     function filterMatches() {
       const searchTerm = document.getElementById('searchInput').value.toLowerCase();
       const computeFilter = document.getElementById('computeFilter').value;
+      const genderFilter = document.getElementById('genderFilter').value;
+      const sideFilter = document.getElementById('sideFilter').value;
+      const regionFilter = document.getElementById('regionFilter').value;
+      const regionMinPercent = parseFloat(document.getElementById('regionSlider').value);
 
-      document.querySelectorAll('.match-row').forEach((row, index) => {
-        const match = matchesData[index];
-        const detailRow = row.nextElementSibling;
+      // Filter the matches array
+      filteredMatches = matchesData.filter(match => {
+        // Name search
+        const nameMatch = searchTerm === '' ||
+                         (match.first_name + ' ' + match.last_name).toLowerCase().includes(searchTerm) ||
+                         match.initials.toLowerCase().includes(searchTerm);
 
-        const nameMatch = (match.first_name + ' ' + match.last_name).toLowerCase().includes(searchTerm) ||
-                         match.initials.toLowerCase().includes(searchTerm) ||
-                         match.predicted_relationship_id.toLowerCase().includes(searchTerm);
-
+        // Version filter
         let computeMatch = true;
         if (computeFilter === 'latest') {
           computeMatch = match.ancestry?.using_latest_compute === true;
@@ -598,15 +726,74 @@ function generateMatchesHTML(matches) {
           computeMatch = match.ancestry?.using_latest_compute === false;
         }
 
-        if (nameMatch && computeMatch) {
-          row.style.display = '';
-          detailRow.style.display = row.classList.contains('expanded') ? 'table-row' : 'none';
-        } else {
-          row.style.display = 'none';
-          detailRow.style.display = 'none';
-          row.classList.remove('expanded');
+        // Gender filter
+        let genderMatch = true;
+        if (genderFilter !== 'all') {
+          genderMatch = match.sex === genderFilter;
         }
+
+        // Side filter
+        let sideMatch = true;
+        if (sideFilter === 'maternal') {
+          sideMatch = match.is_maternal_side === true;
+        } else if (sideFilter === 'paternal') {
+          sideMatch = match.is_paternal_side === true;
+        }
+
+        // Region filter
+        let regionMatch = true;
+        if (regionFilter !== 'all' && match.ancestry && match.ancestry.regions) {
+          regionMatch = false;
+          const selectedRegionParts = regionFilter.split(' > ');
+
+          for (const [regionName, regionArray] of Object.entries(match.ancestry.regions)) {
+            regionArray.forEach(region => {
+              if (selectedRegionParts.length === 1 && region.label === selectedRegionParts[0]) {
+                if (parseFloat(region.totalPercent) >= regionMinPercent) {
+                  regionMatch = true;
+                }
+              }
+              if (region.regions) {
+                for (const [subRegionName, subRegionArray] of Object.entries(region.regions)) {
+                  subRegionArray.forEach(subRegion => {
+                    if (selectedRegionParts.length === 2 &&
+                        region.label === selectedRegionParts[0] &&
+                        subRegion.label === selectedRegionParts[1]) {
+                      if (parseFloat(subRegion.totalPercent) >= regionMinPercent) {
+                        regionMatch = true;
+                      }
+                    }
+                    if (subRegion.regions) {
+                      for (const [subSubRegionName, subSubRegionArray] of Object.entries(subRegion.regions)) {
+                        subSubRegionArray.forEach(subSubRegion => {
+                          if (selectedRegionParts.length === 3 &&
+                              region.label === selectedRegionParts[0] &&
+                              subRegion.label === selectedRegionParts[1] &&
+                              subSubRegion.label === selectedRegionParts[2]) {
+                            if (parseFloat(subSubRegion.totalPercent) >= regionMinPercent) {
+                              regionMatch = true;
+                            }
+                          }
+                        });
+                      }
+                    }
+                  });
+                }
+              }
+            });
+          }
+        } else if (regionFilter !== 'all') {
+          regionMatch = false;
+        }
+
+        return nameMatch && computeMatch && genderMatch && sideMatch && regionMatch;
       });
+
+      // Reset to page 1 when filtering
+      currentPage = 1;
+
+      // Re-render with filtered results
+      renderMatches();
     }
 
     // Sorting functionality
@@ -623,22 +810,8 @@ function generateMatchesHTML(matches) {
     });
 
     function sortMatches(column, ascending) {
-      const tbody = document.getElementById('matchesBody');
-      const rows = Array.from(tbody.querySelectorAll('.match-row'));
-
-      // Create pairs of [row, detailRow] to keep them together
-      const rowPairs = rows.map(row => {
-        return {
-          row: row,
-          detailRow: row.nextElementSibling,
-          index: parseInt(row.dataset.index)
-        };
-      });
-
-      rowPairs.sort((a, b) => {
-        const matchA = matchesData[a.index];
-        const matchB = matchesData[b.index];
-
+      // Sort the filtered matches array
+      filteredMatches.sort((matchA, matchB) => {
         let valA, valB;
 
         switch(column) {
@@ -665,12 +838,8 @@ function generateMatchesHTML(matches) {
         return 0;
       });
 
-      // Clear and re-append in sorted order, keeping row pairs together
-      tbody.innerHTML = '';
-      rowPairs.forEach(pair => {
-        tbody.appendChild(pair.row);
-        tbody.appendChild(pair.detailRow);
-      });
+      // Re-render with sorted results
+      renderMatches();
     }
   </script>
 </body>
