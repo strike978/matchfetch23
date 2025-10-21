@@ -14,7 +14,7 @@
       <div id="relativesStatus" class="status">Loading...</div>
       <div id="sharingStats" class="sharing-stats"></div>
 
-      <div class="fetch-options" style="margin: 20px 0; padding: 15px; background: #333; border-radius: 8px;">
+      <div class="fetch-options" style="margin: 20px 0; padding: 15px; background: #333; border-radius: 8px; display: none;">
         <h3 style="color: #fff; margin-top: 0;">Fetch Match Details</h3>
         <div style="margin: 10px 0;">
           <label style="display: block; margin-bottom: 5px; color: #fff;">
@@ -27,12 +27,14 @@
             <input type="number" id="customAmount" value="20" min="1" style="margin-left: 10px; width: 80px; padding: 5px;" disabled>
           </label>
         </div>
-        <button id="fetchMatches" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
-          Fetch Matches
-        </button>
-        <button id="saveJson" style="padding: 10px 20px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; margin-left: 10px;" disabled>
-          Save Matches HTML
-        </button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button id="fetchMatches" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+            Fetch Matches
+          </button>
+          <button id="saveJson" style="padding: 10px 20px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; display: none;">
+            Save Matches
+          </button>
+        </div>
         <div id="fetchProgress" style="margin-top: 10px; color: #fff; font-weight: 500;"></div>
       </div>
 

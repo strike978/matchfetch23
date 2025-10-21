@@ -161,6 +161,12 @@ async function fetchAndDisplay(url, statusElementId, dataElementId, label) {
           </div>
         `;
       }
+
+      // Show fetch options now that relatives data is loaded
+      const fetchOptionsElement = document.querySelector('.fetch-options');
+      if (fetchOptionsElement) {
+        fetchOptionsElement.style.display = 'block';
+      }
     } else if (label === 'Ancestry Composition' && data && data.population_trees) {
       processedData = await extractAncestryData(data, url);
     }
@@ -373,7 +379,7 @@ document.getElementById('fetchMatches').addEventListener('click', async () => {
   }
 
   progressElement.textContent = `Fetching data for ${matchesToFetch.length} matches...`;
-  saveButton.disabled = true;
+  saveButton.style.display = 'none';
   enrichedMatchesData = [];
 
   for (let i = 0; i < matchesToFetch.length; i++) {
@@ -397,7 +403,7 @@ document.getElementById('fetchMatches').addEventListener('click', async () => {
   }
 
   progressElement.textContent = `✓ Completed! Fetched ${enrichedMatchesData.length} matches.`;
-  saveButton.disabled = false;
+  saveButton.style.display = 'inline-block';
 });
 
 // Fetch detailed data for a single match
