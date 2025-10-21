@@ -782,22 +782,43 @@ function renderRegionHierarchy(regions, depth) {
   return html;
 }
 
-// Save as JSON button handler
+// Save and View Matches button handler
 document.getElementById('saveJson').addEventListener('click', () => {
   if (enrichedMatchesData.length === 0) {
     alert('No data to save. Please fetch matches first.');
     return;
   }
 
-  const dataStr = JSON.stringify(enrichedMatchesData, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
+  // Generate HTML viewer and save as file
+  const htmlContent = generateMatchesHTML(enrichedMatchesData);
+  const dateStr = new Date().toISOString().split('T')[0];
 
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `23andme-matches-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+  const htmlUrl = URL.createObjectURL(htmlBlob);
+
+  const htmlLink = document.createElement('a');
+  htmlLink.href = htmlUrl;
+  htmlLink.download = `23andme-matches-${dateStr}.html`;
+  document.body.appendChild(htmlLink);
+  htmlLink.click();
+  document.body.removeChild(htmlLink);
+  URL.revokeObjectURL(htmlUrl);
+
+  // Code for saving files (commented out for now)
+  
+
+
+
+  // Download JSON file
+  const jsonStr = JSON.stringify(enrichedMatchesData, null, 2);
+  const jsonBlob = new Blob([jsonStr], { type: 'application/json' });
+  const jsonUrl = URL.createObjectURL(jsonBlob);
+  const jsonLink = document.createElement('a');
+  jsonLink.href = jsonUrl;
+  jsonLink.download = `23andme-matches-${dateStr}.json`;
+  document.body.appendChild(jsonLink);
+  jsonLink.click();
+  document.body.removeChild(jsonLink);
+  URL.revokeObjectURL(jsonUrl);
+  
 });
