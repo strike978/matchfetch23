@@ -349,7 +349,7 @@ function generateMatchesHTML(matches) {
 </head>
 <body>
   <div class="container">
-    <h1>23andMe DNA Matches</h1>
+   
 
     <div class="summary">
       <div class="summary-item">
@@ -374,7 +374,7 @@ function generateMatchesHTML(matches) {
         <label>Version:</label>
         <select id="computeFilter">
           <option value="all">All</option>
-          <option value="latest">Latest Only</option>
+          <option value="latest" selected>Latest Only</option>
           <option value="old">Old Only</option>
         </select>
 
@@ -641,9 +641,9 @@ function generateMatchesHTML(matches) {
     renderMatches();
 
     // Build region filter dropdown
-    function buildRegionDropdown() {
+    function buildRegionDropdown(matchesToUse = matchesData) {
       const regionSet = new Set();
-      matchesData.forEach(match => {
+      matchesToUse.forEach(match => {
         if (match.ancestry && match.ancestry.regions) {
           for (const [regionName, regionArray] of Object.entries(match.ancestry.regions)) {
             regionArray.forEach(region => {
@@ -668,6 +668,11 @@ function generateMatchesHTML(matches) {
       });
 
       const regionFilter = document.getElementById('regionFilter');
+      // Clear existing options except "All Regions"
+      while (regionFilter.children.length > 1) {
+        regionFilter.removeChild(regionFilter.lastChild);
+      }
+      
       const sortedRegions = Array.from(regionSet).sort();
       sortedRegions.forEach(region => {
         const option = document.createElement('option');
@@ -676,7 +681,9 @@ function generateMatchesHTML(matches) {
         regionFilter.appendChild(option);
       });
     }
-    buildRegionDropdown();
+    // Build initial region dropdown with latest version matches only (default filter)
+    const initialMatches = matchesData.filter(m => m.ancestry?.using_latest_compute === true);
+    buildRegionDropdown(initialMatches);
 
     // Region slider update
     document.getElementById('regionSlider').addEventListener('input', (e) => {
@@ -691,6 +698,17 @@ function generateMatchesHTML(matches) {
 
     // All filter change listeners
     document.getElementById('computeFilter').addEventListener('change', () => {
+      // Rebuild region dropdown based on version filter
+      const computeFilter = document.getElementById('computeFilter').value;
+      let matchesToUse = matchesData;
+      if (computeFilter === 'latest') {
+        matchesToUse = matchesData.filter(m => m.ancestry?.using_latest_compute === true);
+      } else if (computeFilter === 'old') {
+        matchesToUse = matchesData.filter(m => m.ancestry?.using_latest_compute === false);
+      }
+      buildRegionDropdown(matchesToUse);
+      // Reset region filter to "all" when version changes
+      document.getElementById('regionFilter').value = 'all';
       filterMatches();
     });
     document.getElementById('genderFilter').addEventListener('change', () => {
