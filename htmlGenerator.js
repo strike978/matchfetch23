@@ -152,8 +152,18 @@ function generateMatchesHTML(matches) {
       color: #4CAF50;
     }
 
-    .relationship-cell {
+    .gender-icon {
+      margin-right: 8px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .gender-icon.male {
       color: #64B5F6;
+    }
+
+    .gender-icon.female {
+      color: #F48FB1;
     }
 
     .dna-cell {
@@ -375,7 +385,6 @@ function generateMatchesHTML(matches) {
         <thead>
           <tr>
             <th class="sortable" data-sort="name">Name</th>
-            <th class="sortable" data-sort="relationship">Relationship</th>
             <th class="sortable" data-sort="dna">DNA Shared</th>
             <th class="sortable" data-sort="segments">Segments</th>
             <th>Haplogroups</th>
@@ -399,6 +408,17 @@ function generateMatchesHTML(matches) {
         match.first_name + ' ' + match.last_name :
         match.initials;
 
+      let genderIcon = '⚬';
+      let genderClass = '';
+      if (match.sex === 'F' || match.sex === 'female') {
+        genderIcon = '♀';
+        genderClass = 'female';
+      } else if (match.sex === 'M' || match.sex === 'male') {
+        genderIcon = '♂';
+        genderClass = 'male';
+      }
+      const nameWithGender = '<span class="gender-icon ' + genderClass + '">' + genderIcon + '</span>' + name;
+
       const relationship = match.predicted_relationship_id.replace(/_/g, ' ');
       const dnaPercent = (match.ibd_proportion * 100).toFixed(2);
 
@@ -420,7 +440,7 @@ function generateMatchesHTML(matches) {
       const haplogroupHtml = !ydna && !mtdna ? '<span style="color: #666;">-</span>' : ydnaHtml + mtdnaHtml;
 
       return {
-        name: name,
+        name: nameWithGender,
         relationship: relationship,
         dnaPercent: dnaPercent,
         segments: match.num_segments,
@@ -482,11 +502,9 @@ function generateMatchesHTML(matches) {
         '<div class="detail-item"><span class="detail-label">Max Segment:</span><span class="detail-value">' + maxSegment + ' cM</span></div>' +
         '<div class="detail-item"><span class="detail-label">Maternal Side:</span><span class="detail-value">' + maternalSide + '</span></div>' +
         '<div class="detail-item"><span class="detail-label">Paternal Side:</span><span class="detail-value">' + paternalSide + '</span></div>' +
-        '<div class="detail-item"><span class="detail-label">Opted In:</span><span class="detail-value">' + match.date_opted_in + '</span></div>' +
         '</div><div class="detail-card"><h3>Haplogroups</h3>' +
         '<div class="detail-item"><span class="detail-label">Y-DNA:</span><span class="detail-value">' + ydna + '</span></div>' +
         '<div class="detail-item"><span class="detail-label">mtDNA:</span><span class="detail-value">' + mtdna + '</span></div>' +
-        '<div class="detail-item"><span class="detail-label">Compute Version:</span><span class="detail-value">' + computeVersion + '</span></div>' +
         '</div></div><div class="ancestry-content"><h3>Ancestry Composition</h3>' + ancestryHtml + '</div></div>';
     }
 
@@ -508,7 +526,6 @@ function generateMatchesHTML(matches) {
         tr.className = 'match-row';
         tr.dataset.index = index;
         tr.innerHTML = '<td class="name-cell">' + rowData.name + '</td>' +
-          '<td class="relationship-cell">' + rowData.relationship + '</td>' +
           '<td class="dna-cell">' + rowData.dnaPercent + '%</td>' +
           '<td>' + rowData.segments + '</td>' +
           '<td>' + rowData.haplogroupHtml + '</td>' +
@@ -517,7 +534,7 @@ function generateMatchesHTML(matches) {
 
         const detailTr = document.createElement('tr');
         detailTr.className = 'detail-row';
-        detailTr.innerHTML = '<td colspan="7" class="detail-cell">' + generateDetailViewClient(match) + '</td>';
+        detailTr.innerHTML = '<td colspan="6" class="detail-cell">' + generateDetailViewClient(match) + '</td>';
 
         tbody.appendChild(tr);
         tbody.appendChild(detailTr);
@@ -608,13 +625,19 @@ function generateMatchesHTML(matches) {
     function sortMatches(column, ascending) {
       const tbody = document.getElementById('matchesBody');
       const rows = Array.from(tbody.querySelectorAll('.match-row'));
-      const detailRows = Array.from(tbody.querySelectorAll('.detail-row'));
 
-      rows.sort((a, b) => {
-        const indexA = parseInt(a.dataset.index);
-        const indexB = parseInt(b.dataset.index);
-        const matchA = matchesData[indexA];
-        const matchB = matchesData[indexB];
+      // Create pairs of [row, detailRow] to keep them together
+      const rowPairs = rows.map(row => {
+        return {
+          row: row,
+          detailRow: row.nextElementSibling,
+          index: parseInt(row.dataset.index)
+        };
+      });
+
+      rowPairs.sort((a, b) => {
+        const matchA = matchesData[a.index];
+        const matchB = matchesData[b.index];
 
         let valA, valB;
 
@@ -642,12 +665,11 @@ function generateMatchesHTML(matches) {
         return 0;
       });
 
-      // Clear and re-append in sorted order
+      // Clear and re-append in sorted order, keeping row pairs together
       tbody.innerHTML = '';
-      rows.forEach((row, i) => {
-        const index = parseInt(row.dataset.index);
-        tbody.appendChild(row);
-        tbody.appendChild(detailRows[index]);
+      rowPairs.forEach(pair => {
+        tbody.appendChild(pair.row);
+        tbody.appendChild(pair.detailRow);
       });
     }
   </script>
