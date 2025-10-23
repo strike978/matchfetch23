@@ -179,7 +179,7 @@ def create_haplogroup_charts(haplogroup_data: Dict[str, Any], location_label: st
             plt.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2,
                      f'{count}', va='center', fontweight='bold')
         plt.xlabel('Number of Relatives', fontsize=12, fontweight='bold')
-        plt.title(f'Y-DNA Haplogroup Distribution\n{location_label} Relatives (n={haplogroup_data["total_ydna"]})',
+        plt.title(f'Y-DNA Haplogroup Distribution\nRelatives with 4 Grandparents Born in {location_label} (n={haplogroup_data["total_ydna"]})',
                   fontsize=14, fontweight='bold', pad=20)
         # Customize appearance
         plt.gca().spines['top'].set_visible(False)
@@ -216,7 +216,7 @@ def create_haplogroup_charts(haplogroup_data: Dict[str, Any], location_label: st
             plt.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2,
                      f'{count}', va='center', fontweight='bold')
         plt.xlabel('Number of Relatives', fontsize=12, fontweight='bold')
-        plt.title(f'mtDNA Haplogroup Distribution\n{location_label} Relatives (n={haplogroup_data["total_mtdna"]})',
+        plt.title(f'mtDNA Haplogroup Distribution\nRelatives with 4 Grandparents Born in {location_label} (n={haplogroup_data["total_mtdna"]})',
                   fontsize=14, fontweight='bold', pad=20)
         # Customize appearance
         plt.gca().spines['top'].set_visible(False)
@@ -538,7 +538,7 @@ def create_main_categories_bar_chart(hierarchy: Dict[str, Any], num_relatives: i
     ax.set_yticks(y_pos)
     ax.set_yticklabels(categories)
     ax.set_xlabel('Percentage (%)', fontsize=12, fontweight='bold')
-    ax.set_title(f'Main Ancestry Categories (Avg vs Max)\n{location_label} Relatives (n={num_relatives})',
+    ax.set_title(f'Main Ancestry Categories (Avg vs Max)\nRelatives with 4 Grandparents Born in {location_label} (n={num_relatives})',
                  fontsize=14, fontweight='bold', pad=20)
     ax.legend(loc='lower right', frameon=False)
     ax.spines['top'].set_visible(False)
@@ -688,7 +688,7 @@ def create_detailed_ancestry_chart(hierarchy: Dict[str, Any], num_relatives: int
     ax.set_yticks(y_positions)
     ax.set_yticklabels(labels, fontsize=max(7, base_font_size))
     ax.set_xlabel('Percentage (%)', fontsize=12, fontweight='bold')
-    ax.set_title(f'Complete Ancestry Hierarchy (Avg vs Max)\n{location_label} Relatives (n={num_relatives})',
+    ax.set_title(f'Complete Ancestry Hierarchy (Avg vs Max)\nRelatives with 4 Grandparents Born in {location_label} (n={num_relatives})',
                  fontsize=14, fontweight='bold', pad=20)
 
     # Add legend
