@@ -442,23 +442,20 @@ document.getElementById('fetchMatches').addEventListener('click', async () => {
   const progressElement = document.getElementById('fetchProgress');
   const saveButton = document.getElementById('saveJson');
 
-  // Determine which matches to fetch
-  let matchesToFetch = [];
-  if (fetchType === 'sharing') {
-    matchesToFetch = allRelativesData.filter(r => r.is_open_sharing === true);
-  } else {
-    // Filter for sharing matches first, then take the custom amount
-    matchesToFetch = allRelativesData
-      .filter(r => r.is_open_sharing === true)
-      .slice(0, customAmount);
-  }
+  // Start with all sharing matches
+  let matchesToFetch = allRelativesData.filter(r => r.is_open_sharing === true);
 
-  // Apply grandparent location filter
+  // Apply grandparent location filter first
   if (locationFilter !== 'all') {
     matchesToFetch = matchesToFetch.filter(match => {
       const category = analyzeGrandparentLocations(match);
       return category === locationFilter;
     });
+  }
+
+  // Then apply custom amount limit if needed
+  if (fetchType === 'custom') {
+    matchesToFetch = matchesToFetch.slice(0, customAmount);
   }
 
   if (matchesToFetch.length === 0) {
