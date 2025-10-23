@@ -430,7 +430,7 @@ def organize_ancestry_hierarchically(ancestry_data: Dict[str, Any]) -> Dict[str,
 
 def display_hierarchy(hierarchy: Dict[str, Any], indent: int = 0, output_lines: List[str] = None) -> List[str]:
     """
-    Display ancestry hierarchy in a tree-like format.
+    Display ancestry hierarchy in a tree-like format with avg and max percentages.
 
     Args:
         hierarchy: Hierarchical ancestry data
@@ -449,17 +449,19 @@ def display_hierarchy(hierarchy: Dict[str, Any], indent: int = 0, output_lines: 
 
     for region_name, data in sorted_items:
         percentage = data['percentage']
+        max_percentage = data.get('max_percentage', percentage)
+
         if percentage > 0.1:  # Only show regions with > 0.1%
             prefix = "  " * indent
             if indent == 0:
                 # Main categories
-                line = f"{prefix}● {region_name:<45} {percentage:>6.1f}%"
+                line = f"{prefix}● {region_name:<40} avg: {percentage:>5.1f}%  max: {max_percentage:>5.1f}%"
             elif indent == 1:
                 # Sub-categories
-                line = f"{prefix}├─ {region_name:<42} {percentage:>6.1f}%"
+                line = f"{prefix}├─ {region_name:<37} avg: {percentage:>5.1f}%  max: {max_percentage:>5.1f}%"
             else:
                 # Sub-sub-categories
-                line = f"{prefix}└─ {region_name:<39} {percentage:>6.1f}%"
+                line = f"{prefix}└─ {region_name:<34} avg: {percentage:>5.1f}%  max: {max_percentage:>5.1f}%"
 
             print(line)
             output_lines.append(line)
@@ -474,7 +476,7 @@ def display_hierarchy(hierarchy: Dict[str, Any], indent: int = 0, output_lines: 
 
 def create_main_categories_bar_chart(hierarchy: Dict[str, Any], num_relatives: int, color_mapping: Dict[str, str], location_label: str) -> str:
     """
-    Create a bar chart for main ancestry categories using actual 23andMe colors.
+    Create a bar chart for main ancestry categories showing avg and max using actual 23andMe colors.
 
     Args:
         hierarchy: Hierarchical ancestry data
@@ -486,7 +488,8 @@ def create_main_categories_bar_chart(hierarchy: Dict[str, Any], num_relatives: i
     """
     # Extract main categories and their percentages
     categories = []
-    percentages = []
+    avg_percentages = []
+    max_percentages = []
     chart_colors = []
 
     # Sort by percentage (descending) and reverse for top-to-bottom display
@@ -494,32 +497,54 @@ def create_main_categories_bar_chart(hierarchy: Dict[str, Any], num_relatives: i
         hierarchy.items(), key=lambda x: x[1]['percentage'], reverse=True)
 
     for i, (region_name, data) in enumerate(sorted_items):
-        percentage = data['percentage']
-        if percentage > 0.5:  # Only show categories with > 0.5%
+        avg_percentage = data['percentage']
+        max_percentage = data.get('max_percentage', avg_percentage)
+        if avg_percentage > 0.5:  # Only show categories with > 0.5%
             categories.append(region_name)
-            percentages.append(percentage)
+            avg_percentages.append(avg_percentage)
+            max_percentages.append(max_percentage)
             # Use actual color from data, fallback to default if not found
             chart_colors.append(color_mapping.get(region_name, '#808080'))
 
     # Reverse the lists to display from top to bottom (highest to lowest)
     categories.reverse()
-    percentages.reverse()
+    avg_percentages.reverse()
+    max_percentages.reverse()
     chart_colors.reverse()
 
-    # Create the figure
-    plt.figure(figsize=(12, 8))
-    bars = plt.barh(categories, percentages, color=chart_colors)
+    # Create the figure with grouped bars
+    fig, ax = plt.subplots(figsize=(14, 8))
 
-    # Add percentage labels on bars
-    for i, (bar, percentage) in enumerate(zip(bars, percentages)):
-        plt.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height()/2,
-                 f'{percentage:.1f}%', va='center', fontweight='bold')
+    # Set up positions for grouped bars
+    y_pos = range(len(categories))
+    bar_height = 0.35
+
+    # Create bars for average and maximum
+    bars_avg = ax.barh([y - bar_height/2 for y in y_pos], avg_percentages,
+                       bar_height, label='Average', color=chart_colors, alpha=0.8)
+    bars_max = ax.barh([y + bar_height/2 for y in y_pos], max_percentages,
+                       bar_height, label='Maximum', color=chart_colors, alpha=0.5)
+
+    # Add percentage labels
+    for bar, percentage in zip(bars_avg, avg_percentages):
+        ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height()/2,
+                f'{percentage:.1f}%', va='center', fontweight='bold', fontsize=9)
+
+    for bar, percentage in zip(bars_max, max_percentages):
+        ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height()/2,
+                f'{percentage:.1f}%', va='center', fontsize=9, style='italic')
 
     # Customize appearance
-    plt.gca().spines['top'].set_visible(False)
-    plt.gca().spines['right'].set_visible(False)
-    plt.gca().spines['left'].set_visible(False)
-    plt.grid(axis='x', alpha=0.3, linestyle='--')
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(categories)
+    ax.set_xlabel('Percentage (%)', fontsize=12, fontweight='bold')
+    ax.set_title(f'Main Ancestry Categories (Avg vs Max)\n{location_label} Relatives (n={num_relatives})',
+                 fontsize=14, fontweight='bold', pad=20)
+    ax.legend(loc='lower right', frameon=False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.grid(axis='x', alpha=0.3, linestyle='--')
     plt.tight_layout()
 
     # Save the chart
@@ -532,7 +557,7 @@ def create_main_categories_bar_chart(hierarchy: Dict[str, Any], num_relatives: i
 
 def create_detailed_ancestry_chart(hierarchy: Dict[str, Any], num_relatives: int, color_mapping: Dict[str, str], location_label: str) -> str:
     """
-    Create a detailed hierarchical chart showing all subcategories using actual 23andMe colors.
+    Create a detailed hierarchical chart showing all subcategories with avg and max using actual 23andMe colors.
 
     Args:
         hierarchy: Hierarchical ancestry data
@@ -542,7 +567,23 @@ def create_detailed_ancestry_chart(hierarchy: Dict[str, Any], num_relatives: int
     Returns:
         str: Filename of the saved chart
     """
-    fig, ax = plt.subplots(figsize=(16, 14))
+    # First, count total items to determine appropriate figure size
+    def count_items(hier_dict, level=0):
+        count = 0
+        sorted_items = sorted(hier_dict.items(), key=lambda x: x[1]['percentage'], reverse=True)
+        for item_name, item_data in sorted_items:
+            if item_data['percentage'] > 0.1:
+                count += 1
+                children = item_data.get('children', {})
+                if children:
+                    count += count_items(children, level + 1)
+        return count
+
+    total_items_count = count_items(hierarchy)
+
+    # Dynamically set figure height based on number of items (0.4 inches per item, minimum 12)
+    fig_height = max(12, total_items_count * 0.4)
+    fig, ax = plt.subplots(figsize=(20, fig_height))
 
     # Collect all items in hierarchical order (matching text output exactly)
     all_items = []
@@ -553,17 +594,19 @@ def create_detailed_ancestry_chart(hierarchy: Dict[str, Any], num_relatives: int
             hier_dict.items(), key=lambda x: x[1]['percentage'], reverse=True)
 
         for item_name, item_data in sorted_items:
-            percentage = item_data['percentage']
+            avg_percentage = item_data['percentage']
+            max_percentage = item_data.get('max_percentage', avg_percentage)
 
             # Show all items above 0.1% threshold (matching text output)
-            if percentage > 0.1:
+            if avg_percentage > 0.1:
                 # Use actual color from mapping, fallback to parent color
                 item_color = color_mapping.get(item_name, parent_color)
 
                 all_items.append({
                     'level': level,
                     'name': item_name,
-                    'percentage': percentage,
+                    'avg_percentage': avg_percentage,
+                    'max_percentage': max_percentage,
                     'color': item_color
                 })
 
@@ -590,49 +633,71 @@ def create_detailed_ancestry_chart(hierarchy: Dict[str, Any], num_relatives: int
         y_pos = total_items - i - 1  # Reverse the order for top-to-bottom
         level = item['level']
 
+        # Dynamically adjust sizes based on total items
+        base_font_size = max(7, min(10, 200 / total_items))  # Scale down font for many items
+
         # Determine bar height and alpha based on level
         if level == 0:  # Main category
-            bar_height = 0.8
-            alpha = 1.0
+            bar_height = 0.7
+            alpha_avg = 0.9
+            alpha_max = 0.5
             font_weight = 'bold'
-            font_size = 11
+            font_size = base_font_size + 1
+            label_font_size = base_font_size + 1
             prefix = "● "
         elif level == 1:  # Sub-category
-            bar_height = 0.6
-            alpha = 0.9
+            bar_height = 0.55
+            alpha_avg = 0.8
+            alpha_max = 0.4
             font_weight = 'normal'
-            font_size = 10
+            font_size = base_font_size
+            label_font_size = base_font_size
             prefix = "  ├─ "
         else:  # Sub-sub-category
-            bar_height = 0.4
-            alpha = 0.8
+            bar_height = 0.45
+            alpha_avg = 0.7
+            alpha_max = 0.3
             font_weight = 'normal'
-            font_size = 9
+            font_size = base_font_size - 0.5
+            label_font_size = base_font_size - 0.5
             prefix = "    └─ "
 
-        # Draw bar
-        ax.barh(y_pos, item['percentage'], color=item['color'],
-                height=bar_height, alpha=alpha)
+        # Draw bars for avg and max with better spacing (avg on top, max on bottom)
+        ax.barh(y_pos + bar_height/3, item['avg_percentage'], color=item['color'],
+                height=bar_height/2, alpha=alpha_avg)
+        ax.barh(y_pos - bar_height/3, item['max_percentage'], color=item['color'],
+                height=bar_height/2, alpha=alpha_max)
 
-        # Add percentage label
-        label_offset = 1.0 if level == 0 else 0.5
-        ax.text(item['percentage'] + label_offset, y_pos, f"{item['percentage']:.1f}%",
-                va='center', fontweight=font_weight, fontsize=font_size)
+        # Add percentage labels with better positioning (avg on top, max on bottom)
+        label_offset = max(1.5, item['avg_percentage'] * 0.02)
+        ax.text(item['avg_percentage'] + label_offset, y_pos + bar_height/3,
+                f"{item['avg_percentage']:.1f}%",
+                va='center', fontweight=font_weight, fontsize=font_size,
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='none', alpha=0.7))
+        ax.text(item['max_percentage'] + label_offset, y_pos - bar_height/3,
+                f"{item['max_percentage']:.1f}%",
+                va='center', fontsize=font_size-0.5, style='italic', alpha=0.9,
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='none', alpha=0.5))
 
         y_positions.append(y_pos)
 
         # Create label with appropriate indentation
-        if level == 0:
-            labels.append(f"{prefix}{item['name']}")
-        else:
-            labels.append(f"{prefix}{item['name']}")
+        labels.append(f"{prefix}{item['name']}")
 
     # Customize the chart
     ax.set_yticks(y_positions)
-    ax.set_yticklabels(labels, fontsize=9)
+    ax.set_yticklabels(labels, fontsize=max(7, base_font_size))
     ax.set_xlabel('Percentage (%)', fontsize=12, fontweight='bold')
-    ax.set_title(f'Complete Ancestry Hierarchy\n{location_label} Relatives (n={num_relatives})',
+    ax.set_title(f'Complete Ancestry Hierarchy (Avg vs Max)\n{location_label} Relatives (n={num_relatives})',
                  fontsize=14, fontweight='bold', pad=20)
+
+    # Add legend
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='gray', alpha=0.8, label='Average'),
+        Patch(facecolor='gray', alpha=0.4, label='Maximum')
+    ]
+    ax.legend(handles=legend_elements, loc='lower right', frameon=False)
 
     # Remove spines and add grid
     ax.spines['top'].set_visible(False)
@@ -640,8 +705,13 @@ def create_detailed_ancestry_chart(hierarchy: Dict[str, Any], num_relatives: int
     ax.spines['left'].set_visible(False)
     ax.grid(axis='x', alpha=0.3, linestyle='--')
 
-    # Adjust layout to accommodate all labels
-    plt.subplots_adjust(left=0.35, right=0.95, top=0.95, bottom=0.08)
+    # Set appropriate margins to prevent label cutoff
+    ax.set_ylim(-0.5, total_items - 0.5)
+    ax.margins(y=0.01)  # Tight margins vertically
+
+    # Adjust layout to accommodate all labels with dynamic left margin
+    left_margin = min(0.35, max(0.25, 80 / fig.get_figwidth()))
+    plt.subplots_adjust(left=left_margin, right=0.96, top=0.97, bottom=0.05)
 
     # Save the chart
     filename = f'{location_label.lower().replace(" ", "_")}_ancestry_complete_hierarchy.png'
@@ -677,6 +747,7 @@ def calculate_average_ancestry(json_file_path: str, country_code: str, location_
     # Filter relatives with all grandparents in specified location AND using latest compute
     filtered_relatives = []
     hierarchy_sums = defaultdict(lambda: defaultdict(float))
+    hierarchy_maxes = defaultdict(lambda: defaultdict(float))
     total_filtered_relatives = 0
     latest_compute_count = 0
 
@@ -697,11 +768,15 @@ def calculate_average_ancestry(json_file_path: str, country_code: str, location_
                     # Get hierarchical organization for this relative
                     hierarchy = organize_ancestry_hierarchically(ancestry_data)
 
-                    # Add to running sums for each level
+                    # Add to running sums and track maximums for each level
                     def sum_hierarchy(hier_dict, path=""):
                         for region_name, data in hier_dict.items():
                             percentage = data['percentage']
                             hierarchy_sums[path][region_name] += percentage
+
+                            # Track maximum percentage for this region
+                            if percentage > hierarchy_maxes[path][region_name]:
+                                hierarchy_maxes[path][region_name] = percentage
 
                             # Recursively sum children
                             children = data.get('children', {})
@@ -730,33 +805,39 @@ def calculate_average_ancestry(json_file_path: str, country_code: str, location_
         f"AVERAGE ANCESTRY PERCENTAGES FOR {location_label.upper()} RELATIVES (LATEST COMPUTE)")
     output_lines.append("="*60)
 
-    # Build average hierarchy
+    # Build average hierarchy with maximums
     average_hierarchy = {}
 
-    # Calculate averages for main categories (level 0)
+    # Calculate averages and maximums for main categories (level 0)
     for region_name, total_sum in hierarchy_sums[""].items():
         avg_percentage = total_sum / len(filtered_relatives)
+        max_percentage = hierarchy_maxes[""][region_name]
         average_hierarchy[region_name] = {
             'percentage': avg_percentage,
+            'max_percentage': max_percentage,
             'children': {}
         }
 
-        # Calculate averages for sub-categories
+        # Calculate averages and maximums for sub-categories
         if region_name in hierarchy_sums:
             for sub_region, sub_total in hierarchy_sums[region_name].items():
                 sub_avg = sub_total / len(filtered_relatives)
+                sub_max = hierarchy_maxes[region_name][sub_region]
                 average_hierarchy[region_name]['children'][sub_region] = {
                     'percentage': sub_avg,
+                    'max_percentage': sub_max,
                     'children': {}
                 }
 
-                # Calculate averages for sub-sub-categories
+                # Calculate averages and maximums for sub-sub-categories
                 sub_path = f"{region_name}/{sub_region}"
                 if sub_path in hierarchy_sums:
                     for subsub_region, subsub_total in hierarchy_sums[sub_path].items():
                         subsub_avg = subsub_total / len(filtered_relatives)
+                        subsub_max = hierarchy_maxes[sub_path][subsub_region]
                         average_hierarchy[region_name]['children'][sub_region]['children'][subsub_region] = {
                             'percentage': subsub_avg,
+                            'max_percentage': subsub_max,
                             'children': {}
                         }
 
