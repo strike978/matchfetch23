@@ -27,6 +27,17 @@
             <input type="number" id="customAmount" value="20" min="1" style="margin-left: 10px; width: 80px; padding: 5px;" disabled>
           </label>
         </div>
+
+        <div style="margin: 15px 0;">
+          <label style="display: block; margin-bottom: 5px; color: #fff; font-size: 14px;">
+            Filter by Grandparent Birth Locations:
+          </label>
+          <select id="locationFilter" style="width: 100%; padding: 8px; font-size: 13px; border-radius: 4px; background: #2a2a2a; color: #fff; border: 1px solid #555;">
+            <option value="all">No location filter</option>
+            <!-- Dynamic options will be inserted here -->
+          </select>
+        </div>
+
         <div style="display: flex; gap: 10px; align-items: center;">
           <button id="fetchMatches" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
             Fetch Matches

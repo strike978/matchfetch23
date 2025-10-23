@@ -167,6 +167,9 @@ async function fetchAndDisplay(url, statusElementId, dataElementId, label) {
       if (fetchOptionsElement) {
         fetchOptionsElement.style.display = 'block';
       }
+
+      // Populate grandparent location filter options
+      populateGrandparentLocationFilters(data);
     } else if (label === 'Ancestry Composition' && data && data.population_trees) {
       processedData = await extractAncestryData(data, url);
     }
@@ -216,6 +219,82 @@ function extractRelativesData(relatives) {
     },
     date_opted_in: relative.date_opted_in
   }));
+}
+
+function analyzeGrandparentLocations(match) {
+  const locations = match.grandparent_birth_locations;
+
+  if (!locations) return 'unknown';
+
+  const gps = [
+    locations.maternal_gma,
+    locations.maternal_gpa,
+    locations.paternal_gma,
+    locations.paternal_gpa
+  ];
+
+  // Filter out null/undefined grandparents
+  const validGps = gps.filter(gp => gp && gp.country);
+
+  if (validGps.length === 0) return 'unknown';
+
+  // Check if all valid grandparents have the same country
+  const countries = validGps.map(gp => gp.country);
+  const uniqueCountries = [...new Set(countries)];
+
+  if (uniqueCountries.length === 1 && validGps.length === 4) {
+    return `all_four_${uniqueCountries[0]}`;
+  } else if (uniqueCountries.length === 1) {
+    return `same_country_${uniqueCountries[0]}_partial`;
+  } else {
+    return 'mixed';
+  }
+}
+
+function categorizeMatchesByGrandparentLocations(matches) {
+  const categories = {
+    all_four_same: {},
+    same_country_partial: {},
+    mixed: 0,
+    unknown: 0
+  };
+
+  matches.forEach(match => {
+    const category = analyzeGrandparentLocations(match);
+
+    if (category === 'mixed') {
+      categories.mixed++;
+    } else if (category === 'unknown') {
+      categories.unknown++;
+    } else if (category.startsWith('all_four_')) {
+      const country = category.replace('all_four_', '');
+      categories.all_four_same[country] = (categories.all_four_same[country] || 0) + 1;
+    } else if (category.startsWith('same_country_') && category.includes('_partial')) {
+      const country = category.replace('same_country_', '').replace('_partial', '');
+      categories.same_country_partial[country] = (categories.same_country_partial[country] || 0) + 1;
+    }
+  });
+
+  return categories;
+}
+
+function populateGrandparentLocationFilters(relatives) {
+  const sharingMatches = relatives.filter(r => r.is_open_sharing === true);
+  const categories = categorizeMatchesByGrandparentLocations(sharingMatches);
+
+  const selectElement = document.getElementById('locationFilter');
+  if (!selectElement) return;
+
+  // Add options for "all four grandparents from same country"
+  const sortedCountries = Object.entries(categories.all_four_same)
+    .sort((a, b) => b[1] - a[1]); // Sort by count descending
+
+  sortedCountries.forEach(([country, count]) => {
+    const option = document.createElement('option');
+    option.value = `all_four_${country}`;
+    option.textContent = `All 4 grandparents from ${country} (${count} matches)`;
+    selectElement.appendChild(option);
+  });
 }
 
 async function extractAncestryData(data, url) {
@@ -359,6 +438,7 @@ async function extractAncestryData(data, url) {
 document.getElementById('fetchMatches').addEventListener('click', async () => {
   const fetchType = document.querySelector('input[name="fetchType"]:checked').value;
   const customAmount = parseInt(document.getElementById('customAmount').value);
+  const locationFilter = document.getElementById('locationFilter').value;
   const progressElement = document.getElementById('fetchProgress');
   const saveButton = document.getElementById('saveJson');
 
@@ -371,6 +451,14 @@ document.getElementById('fetchMatches').addEventListener('click', async () => {
     matchesToFetch = allRelativesData
       .filter(r => r.is_open_sharing === true)
       .slice(0, customAmount);
+  }
+
+  // Apply grandparent location filter
+  if (locationFilter !== 'all') {
+    matchesToFetch = matchesToFetch.filter(match => {
+      const category = analyzeGrandparentLocations(match);
+      return category === locationFilter;
+    });
   }
 
   if (matchesToFetch.length === 0) {
